@@ -10,3 +10,7 @@ To run the server:
 ```
 go build ./cmd/server && ./server
 ```
+To run the client:
+```
+go build ./cmd/client && ./client
+```
