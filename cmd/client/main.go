@@ -2,8 +2,7 @@ package main
 
 import (
 	"fmt"
-	"os"
-	"os/signal"
+	"log"
 
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
@@ -27,7 +26,40 @@ func main() {
 		panic("Failed to declare and bind queue: " + err.Error())
 	}
 	_, _ = queue, ch
-	signalChan := make(chan os.Signal, 1)
-	signal.Notify(signalChan, os.Interrupt)
-	<-signalChan
+	gstate := gamelogic.NewGameState(username)
+outerloop:
+	for {
+		input := gamelogic.GetInput()
+		if len(input) == 0 {
+			continue
+		}
+		switch input[0] {
+		case "spawn":
+			log.Printf("Spawning unit...")
+			err = gstate.CommandSpawn(input)
+			if err != nil {
+				panic("Failed to spawn unit: " + err.Error())
+			}
+		case "move":
+			log.Printf("moving unit...")
+			_, err = gstate.CommandMove(input)
+			if err != nil {
+				panic("Failed to move unit: " + err.Error())
+			}
+		case "status":
+			gstate.CommandStatus()
+		case "help":
+			gamelogic.PrintClientHelp()
+		case "spam":
+			log.Printf("Haven't implamented yet...")
+		case "quit":
+			gamelogic.PrintQuit()
+			break outerloop
+		default:
+			log.Printf("Unknown command: %s", input[0])
+		}
+	}
+	//signalChan := make(chan os.Signal, 1)
+	//signal.Notify(signalChan, os.Interrupt)
+	//<-signalChan
 }
