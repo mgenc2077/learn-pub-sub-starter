@@ -20,10 +20,11 @@ func main() {
 		panic("Failed to connect to RabbitMQ: " + err.Error())
 	}
 	defer conn.Close()
-	channel, err := conn.Channel()
+	channel, queue, err := pubsub.DeclareAndBind(conn, routing.ExchangePerilTopic, routing.GameLogSlug, routing.GameLogSlug+".*", 0)
 	if err != nil {
-		panic("Failed to open a channel: " + err.Error())
+		panic("Failed to declare and bind queue: " + err.Error())
 	}
+	_ = queue
 	err = pubsub.PublishJSON(channel, routing.ExchangePerilDirect, routing.PauseKey, routing.PlayingState{IsPaused: true})
 	if err != nil {
 		panic("Failed to publish message: " + err.Error())
