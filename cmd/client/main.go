@@ -7,8 +7,16 @@ import (
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/pubsub"
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/routing"
+
 	amqp "github.com/rabbitmq/amqp091-go"
 )
+
+func handlerPause(gs *gamelogic.GameState) func(routing.PlayingState) {
+	return func(ps routing.PlayingState) {
+		defer fmt.Print("> ")
+		gs.HandlePause(routing.PlayingState{IsPaused: true})
+	}
+}
 
 func main() {
 	fmt.Println("Starting Peril client...")
@@ -27,6 +35,7 @@ func main() {
 	}
 	_, _ = queue, ch
 	gstate := gamelogic.NewGameState(username)
+	pubsub.SubscribeJSON(conn, routing.ExchangePerilDirect, routing.PauseKey+"."+username, routing.PauseKey, 1, handlerPause(gstate))
 outerloop:
 	for {
 		input := gamelogic.GetInput()
@@ -38,13 +47,13 @@ outerloop:
 			log.Printf("Spawning unit...")
 			err = gstate.CommandSpawn(input)
 			if err != nil {
-				panic("Failed to spawn unit: " + err.Error())
+				log.Printf("Failed to spawn unit: " + err.Error())
 			}
 		case "move":
 			log.Printf("moving unit...")
 			_, err = gstate.CommandMove(input)
 			if err != nil {
-				panic("Failed to move unit: " + err.Error())
+				log.Printf("Failed to move unit: " + err.Error())
 			}
 		case "status":
 			gstate.CommandStatus()
