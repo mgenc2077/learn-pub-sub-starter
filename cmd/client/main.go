@@ -36,6 +36,12 @@ func main() {
 	_, _ = queue, ch
 	gstate := gamelogic.NewGameState(username)
 	pubsub.SubscribeJSON(conn, routing.ExchangePerilDirect, routing.PauseKey+"."+username, routing.PauseKey, 1, handlerPause(gstate))
+	pubsub.SubscribeJSON(conn, "peril_topic", routing.ArmyMovesPrefix+"."+username, routing.ArmyMovesPrefix+".*", 0,
+		func(m gamelogic.ArmyMove) {
+			_ = gstate.HandleMove(m)
+			fmt.Print("> ")
+		})
+
 outerloop:
 	for {
 		input := gamelogic.GetInput()
@@ -51,10 +57,12 @@ outerloop:
 			}
 		case "move":
 			log.Printf("moving unit...")
-			_, err = gstate.CommandMove(input)
+			move, err := gstate.CommandMove(input)
 			if err != nil {
 				log.Printf("Failed to move unit: " + err.Error())
 			}
+			pubsub.PublishJSON(ch, "peril_topic", routing.ArmyMovesPrefix+"."+username, move)
+			log.Printf("Move was published succesfuly")
 		case "status":
 			gstate.CommandStatus()
 		case "help":
