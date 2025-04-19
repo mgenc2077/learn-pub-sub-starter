@@ -11,10 +11,28 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
-func handlerPause(gs *gamelogic.GameState) func(routing.PlayingState) {
-	return func(ps routing.PlayingState) {
+func handlerPause(gs *gamelogic.GameState) func(routing.PlayingState) pubsub.AckType {
+	return func(ps routing.PlayingState) pubsub.AckType {
 		defer fmt.Print("> ")
 		gs.HandlePause(routing.PlayingState{IsPaused: true})
+		return pubsub.Ack
+	}
+}
+
+func handlerMove(gs *gamelogic.GameState) func(gamelogic.ArmyMove) pubsub.AckType {
+	return func(m gamelogic.ArmyMove) pubsub.AckType {
+		outcome := gs.HandleMove(m)
+		fmt.Print("> ")
+		switch outcome {
+		case gamelogic.MoveOutComeSafe:
+			return pubsub.Ack
+		case gamelogic.MoveOutcomeMakeWar:
+			return pubsub.Ack
+		case gamelogic.MoveOutcomeSamePlayer:
+			return pubsub.NackDiscard
+		default:
+			return pubsub.NackDiscard
+		}
 	}
 }
 
@@ -36,11 +54,7 @@ func main() {
 	_, _ = queue, ch
 	gstate := gamelogic.NewGameState(username)
 	pubsub.SubscribeJSON(conn, routing.ExchangePerilDirect, routing.PauseKey+"."+username, routing.PauseKey, 1, handlerPause(gstate))
-	pubsub.SubscribeJSON(conn, "peril_topic", routing.ArmyMovesPrefix+"."+username, routing.ArmyMovesPrefix+".*", 0,
-		func(m gamelogic.ArmyMove) {
-			_ = gstate.HandleMove(m)
-			fmt.Print("> ")
-		})
+	pubsub.SubscribeJSON(conn, "peril_topic", routing.ArmyMovesPrefix+"."+username, routing.ArmyMovesPrefix+".*", 0, handlerMove(gstate))
 
 outerloop:
 	for {

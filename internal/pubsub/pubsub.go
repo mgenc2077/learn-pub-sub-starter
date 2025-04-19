@@ -3,8 +3,17 @@ package pubsub
 import (
 	"context"
 	"encoding/json"
+	"log"
 
 	amqp "github.com/rabbitmq/amqp091-go"
+)
+
+type AckType int
+
+const (
+	Ack AckType = iota
+	NackRequeue
+	NackDiscard
 )
 
 func PublishJSON[T any](ch *amqp.Channel, exchange, key string, val T) error {
@@ -75,7 +84,7 @@ func SubscribeJSON[T any](
 	queueName,
 	key string,
 	simpleQueueType int, // an enum to represent "durable" or "transient"
-	handler func(T),
+	handler func(T) AckType,
 ) error {
 	ch, _, err := DeclareAndBind(conn, exchange, queueName, key, simpleQueueType)
 	if err != nil {
@@ -86,9 +95,27 @@ func SubscribeJSON[T any](
 		for i := range retrnch {
 			var msg T
 			json.Unmarshal(i.Body, &msg)
-			handler(msg)
-			err = i.Ack(false)
-			return
+			handlerreturn := handler(msg)
+			switch handlerreturn {
+			case Ack:
+				log.Printf("Received Ack")
+				err = i.Ack(false)
+				if err != nil {
+					return
+				}
+			case NackRequeue:
+				log.Printf("Received NackRequeue")
+				i.Nack(false, true)
+				if err != nil {
+					return
+				}
+			case NackDiscard:
+				log.Printf("Received NackDiscard")
+				i.Nack(false, false)
+				if err != nil {
+					return
+				}
+			}
 		}
 	}()
 	return nil
