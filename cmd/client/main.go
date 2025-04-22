@@ -45,21 +45,36 @@ func handlerMove(gs *gamelogic.GameState, ch *amqp.Channel) func(gamelogic.ArmyM
 	}
 }
 
-func handlerWar(gs *gamelogic.GameState) func(gamelogic.RecognitionOfWar) pubsub.AckType {
+func handlerWar(gs *gamelogic.GameState, ch *amqp.Channel) func(gamelogic.RecognitionOfWar) pubsub.AckType {
 	return func(m gamelogic.RecognitionOfWar) pubsub.AckType {
 		defer fmt.Print("> ")
 		outcome, winner, loser := gs.HandleWar(m)
-		_, _ = winner, loser
+		//_, _ = winner, loser
 		switch outcome {
 		case gamelogic.WarOutcomeNotInvolved:
 			return pubsub.NackRequeue
 		case gamelogic.WarOutcomeNoUnits:
 			return pubsub.NackDiscard
 		case gamelogic.WarOutcomeOpponentWon:
+			res := fmt.Sprintf("%v won against %v", winner, loser)
+			err := pubsub.PublishGob(ch, routing.ExchangePerilTopic, routing.GameLogSlug+"."+gs.Player.Username, res)
+			if err != nil {
+				return pubsub.NackRequeue
+			}
 			return pubsub.Ack
 		case gamelogic.WarOutcomeYouWon:
+			res := fmt.Sprintf("%v won against %v", winner, loser)
+			err := pubsub.PublishGob(ch, routing.ExchangePerilTopic, routing.GameLogSlug+"."+gs.Player.Username, res)
+			if err != nil {
+				return pubsub.NackRequeue
+			}
 			return pubsub.Ack
 		case gamelogic.WarOutcomeDraw:
+			res := fmt.Sprintf("A war between %v and %v resulted in a draw", winner, loser)
+			err := pubsub.PublishGob(ch, routing.ExchangePerilTopic, routing.GameLogSlug+"."+gs.Player.Username, res)
+			if err != nil {
+				return pubsub.NackRequeue
+			}
 			return pubsub.Ack
 		default:
 			log.Printf("unknown outcome: %v", outcome)
@@ -86,8 +101,8 @@ func main() {
 	_ = queue
 	gstate := gamelogic.NewGameState(username)
 	pubsub.SubscribeJSON(conn, routing.ExchangePerilDirect, routing.PauseKey+"."+username, routing.PauseKey, 1, handlerPause(gstate))
-	pubsub.SubscribeJSON(conn, "peril_topic", routing.ArmyMovesPrefix+"."+username, routing.ArmyMovesPrefix+".*", 0, handlerMove(gstate, ch))
-	pubsub.SubscribeJSON(conn, routing.ExchangePerilTopic, "war", routing.WarRecognitionsPrefix+".#", 0, handlerWar(gstate))
+	pubsub.SubscribeJSON(conn, routing.ExchangePerilTopic, routing.ArmyMovesPrefix+"."+username, routing.ArmyMovesPrefix+".*", 0, handlerMove(gstate, ch))
+	pubsub.SubscribeJSON(conn, routing.ExchangePerilTopic, "war", routing.WarRecognitionsPrefix+".#", 0, handlerWar(gstate, ch))
 
 outerloop:
 	for {
