@@ -13,6 +13,18 @@ import (
 	amqp "github.com/rabbitmq/amqp091-go"
 )
 
+func handlerGameLog() func(routing.GameLog) pubsub.AckType {
+	return func(gl routing.GameLog) pubsub.AckType {
+		defer fmt.Print("> ")
+		log.Printf("Game log: %s", gl)
+		err := gamelogic.WriteLog(gl)
+		if err != nil {
+			return pubsub.NackRequeue
+		}
+		return pubsub.Ack
+	}
+}
+
 func main() {
 	fmt.Println("Starting Peril server...")
 	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
@@ -30,6 +42,7 @@ func main() {
 		panic("Failed to publish message: " + err.Error())
 	}
 	fmt.Println("Connected to RabbitMQ")
+	pubsub.SubscribeGob(conn, routing.ExchangePerilTopic, routing.GameLogSlug, routing.GameLogSlug+".*", pubsub.DurableQueue, handlerGameLog())
 	gamelogic.PrintServerHelp()
 	for {
 		input := gamelogic.GetInput()
