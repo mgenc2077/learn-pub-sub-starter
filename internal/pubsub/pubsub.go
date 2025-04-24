@@ -113,49 +113,6 @@ func DeclareAndBind(
 	return ch, queue, nil
 }
 
-//func SubscribeJSON[T any](
-//	conn *amqp.Connection,
-//	exchange,
-//	queueName,
-//	key string,
-//	simpleQueueType SimpleQueueType, // an enum to represent "durable" or "transient"
-//	handler func(T) AckType,
-//) error {
-//	ch, _, err := DeclareAndBind(conn, exchange, queueName, key, simpleQueueType)
-//	if err != nil {
-//		return err
-//	}
-//	retrnch, err := ch.Consume(queueName, "", false, false, false, false, nil)
-//	go func() {
-//		for i := range retrnch {
-//			var msg T
-//			json.Unmarshal(i.Body, &msg)
-//			handlerreturn := handler(msg)
-//			switch handlerreturn {
-//			case Ack:
-//				log.Printf("Received Ack")
-//				err = i.Ack(false)
-//				if err != nil {
-//					return
-//				}
-//			case NackRequeue:
-//				log.Printf("Received NackRequeue")
-//				i.Nack(false, true)
-//				if err != nil {
-//					return
-//				}
-//			case NackDiscard:
-//				log.Printf("Received NackDiscard")
-//				i.Nack(false, false)
-//				if err != nil {
-//					return
-//				}
-//			}
-//		}
-//	}()
-//	return nil
-//}
-
 func subscribe[T any](
 	conn *amqp.Connection,
 	exchange,
@@ -169,6 +126,7 @@ func subscribe[T any](
 	if err != nil {
 		return err
 	}
+	ch.Qos(10, 0, false)
 	retrnch, err := ch.Consume(queueName, "", false, false, false, false, nil)
 	if err != nil {
 		return err
