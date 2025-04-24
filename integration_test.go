@@ -73,3 +73,23 @@ func Test_GameLog(t *testing.T) {
 	t.Logf("server output: %q", srvout)
 	require.Contains(t, srvout, "received game log")
 }
+
+func Test_spam(t *testing.T) {
+	serverTTY, serverCmd := spawnProcess(t, "go", "run", "./cmd/server/main.go")
+	defer serverCmd.Process.Kill()
+
+	readUntil(t, serverTTY, "Connected to RabbitMQ", 5*time.Second)
+
+	cl1TTY, cl1Cmd := spawnProcess(t, "go", "run", "./cmd/client/main.go")
+	defer cl1Cmd.Process.Kill()
+
+	readUntil(t, cl1TTY, "Please enter your username:", 5*time.Second)
+	sendLines(t, cl1TTY, "napoleon", "spam 10")
+	clout := readUntil(t, cl1TTY, "Spam was published succesfully", 10*time.Second)
+	require.Contains(t, clout, "Spam was published succesfully")
+
+	// Uncomment this part to see the server output (it will print every spam)
+	//srvout := readUntil(t, serverTTY, "Last Message c9jsd", 10*time.Second)
+	//require.Contains(t, srvout, "Last Message c9jsd")
+	//t.Logf("server output: %q", srvout)
+}

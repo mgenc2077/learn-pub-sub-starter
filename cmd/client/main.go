@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"strconv"
 	"time"
 
 	"github.com/bootdotdev/learn-pub-sub-starter/internal/gamelogic"
@@ -143,7 +144,34 @@ outerloop:
 		case "help":
 			gamelogic.PrintClientHelp()
 		case "spam":
-			log.Printf("Haven't implamented yet...")
+			if len(input) < 2 {
+				log.Printf("Please provide a second argument")
+				continue
+			}
+			spamcount, err := strconv.Atoi(input[1])
+			if err != nil {
+				log.Printf("Please provide a number as second argument")
+				continue
+			}
+			for i := range spamcount {
+				var str string
+				if i == spamcount-1 {
+					str = "Last Message c9jsd"
+				} else {
+					str = gamelogic.GetMaliciousLog()
+				}
+				strstruct := routing.GameLog{
+					CurrentTime: time.Now(),
+					Message:     str,
+					Username:    gstate.Player.Username,
+				}
+				err := pubsub.PublishGob(ch, routing.ExchangePerilTopic, routing.GameLogSlug+"."+gstate.Player.Username, strstruct)
+				if err != nil {
+					log.Printf("Failed to publish spam: %v", err)
+					continue
+				}
+			}
+			log.Printf("Spam was published succesfully")
 		case "quit":
 			gamelogic.PrintQuit()
 			break outerloop
